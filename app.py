@@ -5,13 +5,12 @@ import plotly.graph_objects as go
 from datetime import datetime
 import tempfile
 import time
+import numpy as np
 
-# Import your modules
 from tor_collector import TORDataCollector
-from correlation_engine import CorrelationEngine
+from correlation_engine import CorrelationEngine, correlate_entry_and_guard
 from visualizer import NetworkVisualizer
 
-# Page configuration
 st.set_page_config(
     page_title="TOR Unveil - Traffic Correlation System",
     page_icon="🔍",
@@ -19,7 +18,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize session state
 if 'collector' not in st.session_state:
     st.session_state.collector = TORDataCollector()
     st.session_state.engine = CorrelationEngine()
@@ -27,26 +25,22 @@ if 'collector' not in st.session_state:
     st.session_state.traffic_data = None
     st.session_state.node_data = None
 
-# Main Title
 st.markdown('<h1 style="color:#1f77b4;text-align:center;">🔍 TOR UNVEIL - Peel the Onion</h1>', unsafe_allow_html=True)
 st.markdown("### Analytical System to Trace TOR Network Users")
 st.markdown("---")
 
-# Sidebar
+# ----- SIDEBAR -----
 with st.sidebar:
     st.title("Control Panel")
-    
     st.subheader("1. Data Collection")
     if st.button("🔄 Fetch TOR Nodes"):
         with st.spinner("Fetching TOR node data..."):
             st.session_state.node_data = st.session_state.collector.fetch_exit_nodes()
             st.success(f"✅ Loaded {len(st.session_state.node_data)} nodes")
-    
     if st.button("📊 Generate Traffic Patterns"):
         with st.spinner("Generating traffic correlation data..."):
             st.session_state.traffic_data = st.session_state.collector.generate_traffic_patterns()
             st.success(f"✅ Generated {len(st.session_state.traffic_data)} sessions")
-    
     st.markdown("---")
     st.subheader("2. Analysis Settings")
     correlation_threshold = st.slider(
@@ -57,7 +51,6 @@ with st.sidebar:
         "Confidence Threshold",
         min_value=0.6, max_value=1.0, value=0.80, step=0.05
     )
-    
     st.markdown("---")
     st.subheader("3. Export")
     if st.button("📥 Generate Forensic Report"):
@@ -79,7 +72,6 @@ with st.sidebar:
         else:
             st.warning("⚠️ Generate traffic data first!")
     
-    # ---- Live PCAP/Network-Log Integration ----
     st.markdown("---")
     st.subheader("4. PCAP Upload (Real-World Data)")
     uploaded_file = st.file_uploader("Upload a PCAP file for dashboard analysis", type=["pcap", "pcapng"], key="main_pcap")
@@ -92,14 +84,12 @@ with st.sidebar:
             st.session_state.traffic_data = parse_pcap_to_sessions(temp_pcap_path)
             st.success("PCAP parsed. Dashboard now shows real packet data.")
     
-    # ---- Entry/Guard Node True Identification ----
     st.markdown("---")
     st.subheader("5. Entry/Guard Node True Identification")
     edge_file = st.file_uploader("Upload Edge PCAP (User/Network)", type=["pcap", "pcapng"], key="edge_pcap")
     guard_file = st.file_uploader("Upload Guard Node PCAP", type=["pcap", "pcapng"], key="guard_pcap")
     if edge_file is not None and guard_file is not None:
         from pcap_collector import parse_pcap_to_sessions
-        from correlation_engine import correlate_entry_and_guard
         with tempfile.NamedTemporaryFile(delete=False) as tf1:
             tf1.write(edge_file.read())
             edge_pcap = tf1.name
@@ -111,7 +101,7 @@ with st.sidebar:
         st.session_state.guard_results = correlate_entry_and_guard(edge_df, guard_df)
         st.success("Edge/Guard matching complete! See Tab 3 for results.")
 
-# Main Dashboard - 6 tabs
+# ----- TABS -----
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 Overview Dashboard",
     "🌐 Network Topology",
@@ -121,10 +111,8 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📋 Statistics & Rigor"
 ])
 
-# TAB 1: Overview Dashboard
 with tab1:
     st.subheader("System Overview & Metrics")
-    
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric(
@@ -155,19 +143,16 @@ with tab1:
             label="Avg Correlation Score",
             value=f"{st.session_state.traffic_data['correlation_score'].mean():.3f}" if st.session_state.traffic_data is not None else "0.000"
         )
-    
     st.markdown("---")
-    
+
+    # Table/Charts
     if st.session_state.traffic_data is not None:
         st.subheader("🔍 Detected Traffic Correlations")
         filtered_data = st.session_state.traffic_data[
             st.session_state.traffic_data['confidence'] >= confidence_threshold
         ].sort_values('confidence', ascending=False)
         display_cols = ['session_id', 'entry_node', 'exit_node', 'correlation_score', 'confidence']
-        st.dataframe(
-            filtered_data[display_cols],
-            height=300
-        )
+        st.dataframe(filtered_data[display_cols], height=300)
         
         col1, col2 = st.columns(2)
         with col1:
@@ -189,9 +174,8 @@ with tab1:
             )
             st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("👈 Click 'Generate Traffic Patterns' or upload a PCAP in the sidebar to load data")
+        st.info("👈 Click 'Generate Traffic Patterns' or upload a PCAP to show correlations")
 
-# TAB 2: Network Topology
 with tab2:
     st.subheader("🌐 TOR Network Topology Visualization")
     if st.session_state.traffic_data is not None:
@@ -199,7 +183,6 @@ with tab2:
             st.session_state.traffic_data
         )
         st.plotly_chart(fig, use_container_width=True)
-        
         col1, col2, col3 = st.columns(3)
         with col1:
             unique_entry = st.session_state.traffic_data['entry_node'].nunique()
@@ -210,7 +193,6 @@ with tab2:
         with col3:
             total_connections = len(st.session_state.traffic_data)
             st.metric("Total Connections", total_connections)
-        
         if st.session_state.node_data is not None:
             st.subheader("📍 Geographic Distribution of Nodes")
             country_dist = st.session_state.node_data['country'].value_counts()
@@ -224,21 +206,18 @@ with tab2:
             )
             st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("👈 Generate traffic patterns or upload a PCAP first to visualize network topology")
+        st.info("👈 Generate traffic patterns or upload a PCAP to visualize topology")
 
-# TAB 3: Correlation Analysis
 with tab3:
     st.subheader("🎯 Traffic Correlation Analysis")
-    
-    # === ENTRY/GUARD MATCHING DISPLAY ===
+
     st.markdown("#### Entry/Guard Node True Identification Results (PCAP-to-PCAP Matching)")
     if "guard_results" in st.session_state:
         st.dataframe(st.session_state.guard_results)
         st.markdown("---")
     else:
         st.info("Upload both edge and guard PCAPs in the sidebar to see matching results.")
-    
-    # ---- Session-based analysis ----
+
     if st.session_state.traffic_data is not None:
         session_options = st.session_state.traffic_data['session_id'].tolist()
         selected_session = st.selectbox("Select Session to Analyze", session_options)
@@ -246,18 +225,16 @@ with tab3:
             session_data = st.session_state.traffic_data[
                 st.session_state.traffic_data['session_id'] == selected_session
             ].iloc[0]
-            
             col1, col2 = st.columns(2)
             with col1:
-                st.markdown("#### 🔵 Entry Node Information")
-                st.code(f"IP Address: {session_data['entry_node']}")
-                st.code(f"Packet Count: {len(session_data['entry_pattern'])}")
+                st.markdown("#### 🔵 Entry Node")
+                st.code(f"{session_data['entry_node']}")
+                st.code(f"Packets: {len(session_data['entry_pattern'])}")
             with col2:
-                st.markdown("#### 🔴 Exit Node Information")
-                st.code(f"IP Address: {session_data['exit_node']}")
-                st.code(f"Packet Count: {len(session_data['exit_pattern'])}")
-                st.code(f"Correlation Score: {session_data['correlation_score']:.3f}")
-            
+                st.markdown("#### 🔴 Exit Node")
+                st.code(f"{session_data['exit_node']}")
+                st.code(f"Packets: {len(session_data['exit_pattern'])}")
+                st.code(f"Correlation: {session_data['correlation_score']:.3f}")
             st.markdown("### 📊 Identification Confidence")
             confidence_pct = session_data['confidence'] * 100
             fig = go.Figure(go.Indicator(
@@ -281,28 +258,9 @@ with tab3:
                 }
             ))
             st.plotly_chart(fig, use_container_width=True)
-            
-            st.markdown("### 📈 Traffic Pattern Comparison")
-            try:
-                fig = st.session_state.visualizer.create_timeline_reconstruction(session_data)
-                st.plotly_chart(fig, use_container_width=True)
-            except:
-                st.warning("Using simplified timeline visualization")
-                times_entry = session_data['entry_pattern'] if isinstance(session_data['entry_pattern'], list) else list(range(10))
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(
-                    x=list(range(len(times_entry))),
-                    y=times_entry,
-                    mode='lines+markers',
-                    name='Entry Pattern',
-                    line=dict(color='blue')
-                ))
-                fig.update_layout(title='Traffic Pattern Timeline', xaxis_title='Packet Sequence', yaxis_title='Timestamp')
-                st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("👈 Generate traffic patterns or upload a PCAP to enable analysis")
+        st.info("Click 'Generate Traffic Patterns' or 'Upload PCAP' for analyses.")
 
-# TAB 4: Timeline Reconstruction
 with tab4:
     st.subheader("📈 Network Path Timeline Reconstruction")
     if st.session_state.traffic_data is not None:
@@ -320,14 +278,11 @@ with tab4:
                 with col3:
                     st.markdown("**🔴 Exit Node**")
                     st.code(row['exit_node'])
-                
                 try:
                     fig = st.session_state.visualizer.create_timeline_reconstruction(row)
                     st.plotly_chart(fig, use_container_width=True, key=f"timeline_{row['session_id']}_{idx}")
                 except:
                     times_entry = row['entry_pattern'] if isinstance(row['entry_pattern'], list) else list(range(10))
-                    times_exit = row['exit_pattern'] if isinstance(row['exit_pattern'], list) else list(range(10))
-                    
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(
                         x=list(range(len(times_entry))),
@@ -336,13 +291,6 @@ with tab4:
                         name='Entry Pattern',
                         line=dict(color='blue')
                     ))
-                    fig.add_trace(go.Scatter(
-                        x=list(range(len(times_exit))),
-                        y=times_exit,
-                        mode='lines+markers',
-                        name='Exit Pattern',
-                        line=dict(color='red')
-                    ))
                     fig.update_layout(
                         title='Traffic Pattern Timeline',
                         xaxis_title='Packet Sequence',
@@ -350,15 +298,11 @@ with tab4:
                         height=300
                     )
                     st.plotly_chart(fig, use_container_width=True, key=f"timeline_fallback_{row['session_id']}_{idx}")
-        
         st.markdown("### 📅 Session Timeline Overview")
         timeline_df = st.session_state.traffic_data.copy()
-        
         if 'timestamp' not in timeline_df.columns:
             timeline_df['timestamp'] = time.time()
-        
         timeline_df['datetime'] = pd.to_datetime(timeline_df['timestamp'], unit='s')
-        
         fig = px.scatter(
             timeline_df,
             x='datetime',
@@ -371,9 +315,29 @@ with tab4:
         )
         st.plotly_chart(fig, use_container_width=True, key="overall_timeline")
     else:
-        st.info("👈 Generate traffic patterns first to view timeline reconstruction")
+        st.info("No data found. Showing demo visualization below.")
+        # Demo chart
+        demo_times = [1,2,3,4,5,6,7,8,9,10]
+        demo_pattern = [0.1,0.3,0.2,0.5,0.4,0.7,0.6,0.8,0.9,1.0]
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=demo_times,
+            y=demo_pattern,
+            mode='lines+markers',
+            name='Demo Traffic Pattern',
+            line=dict(color='blue', width=3)
+        ))
+        fig.update_layout(
+            title='Demo: Traffic Pattern Timeline',
+            xaxis_title='Packet Sequence',
+            yaxis_title='Relative Time',
+            height=400
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("""
+        This tab shows reconstructed flow timelines when sample data is available.
+        """)
 
-# TAB 5: ML Performance
 with tab5:
     st.subheader("🤖 Machine Learning Model Performance")
     col1, col2 = st.columns(2)
@@ -389,10 +353,8 @@ with tab5:
         st.metric("Features Used", "20", "Advanced")
         st.metric("Model Complexity", "Random Forest", "200 trees")
         st.metric("Hyperparameter Tuning", "Optimized", "✓")
-    
     st.markdown("---")
     st.markdown("### Feature Importance (Top 15)")
-    
     features_data = {
         'Feature': [
             'Correlation', 'Entry Std', 'Mean Diff', 'FFT Correlation',
@@ -402,7 +364,6 @@ with tab5:
         ],
         'Importance': [0.18, 0.15, 0.12, 0.11, 0.10, 0.09, 0.08, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02, 0.02, 0.01]
     }
-    
     fig = px.bar(
         pd.DataFrame(features_data),
         x='Importance',
@@ -414,14 +375,12 @@ with tab5:
         labels={'Importance': 'Feature Importance Score', 'Feature': 'Feature Name'}
     )
     st.plotly_chart(fig, use_container_width=True, key="ml_feature_importance")
-    
     st.markdown("---")
     st.markdown("### Model Insights")
     st.info("""
     **Why 87% Accuracy?**
     
     ✅ **Advantages**: Learns complex, non-linear patterns humans miss
-    
     ⚠️ **Limitations**: 
     - False positives from similar traffic patterns between users
     - TOR's designed randomization adds noise
@@ -436,7 +395,6 @@ with tab5:
     📈 **Production Path**: With more training data and deep learning, accuracy could reach 95%+
     """)
 
-# TAB 6: Statistical Rigor
 with tab6:
     st.subheader("📋 Statistical Analysis & Confidence Metrics")
     if st.session_state.traffic_data is not None:
@@ -445,11 +403,9 @@ with tab6:
             st.session_state.traffic_data['session_id'].tolist(),
             key="stat_session"
         )
-        
         session = st.session_state.traffic_data[
             st.session_state.traffic_data['session_id'] == selected_session
         ].iloc[0]
-        
         col1, col2, col3 = st.columns(3)
         with col1:
             st.markdown("### Point Estimate")
@@ -479,7 +435,6 @@ with tab6:
             st.metric("p-value", f"{p_value:.4f}")
             st.metric("Significance", "✓ Significant" if significant else "Not Sig.")
             st.metric("Effect Size", effect_size)
-        
         st.markdown("---")
         col1, col2 = st.columns(2)
         with col1:
@@ -523,7 +478,6 @@ with tab6:
                 height=400
             )
             st.plotly_chart(fig, use_container_width=True, key="high_conf_bar")
-        
         st.markdown("---")
         st.markdown("""
         **Our Approach:**
@@ -540,9 +494,36 @@ with tab6:
         - Effect Size: Large (>0.8) correlations indicate strong evidence of matching
         """)
     else:
-        st.warning("Generate traffic patterns first to see statistics")
+        st.info("No session data found. Showing demo analysis below.")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown("### Point Estimate")
+            st.metric("Correlation Score", "0.873", "Demo")
+            st.metric("Confidence Level", "89.5%", "Demo")
+        with col2:
+            st.markdown("### 95% Confidence Interval")
+            st.metric("Lower Bound", "0.823")
+            st.metric("Upper Bound", "0.923")
+            st.metric("Margin of Error", "± 0.050")
+        with col3:
+            st.markdown("### Statistical Test")
+            st.metric("p-value", "0.0023")
+            st.metric("Significance", "✓ Significant")
+            st.metric("Effect Size", "Large")
+        st.markdown("---")
+        demo_corr = np.random.normal(0.75, 0.15, 100)
+        fig = px.histogram(
+            x=demo_corr,
+            nbins=30,
+            title='Demo: Correlation Score Distribution',
+            labels={'x': 'Correlation Score'},
+            color_discrete_sequence=['#3498db']
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("""
+        Demo Stats Only. Upload or generate traffic patterns to see real computed results.
+        """)
 
-# Footer
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; font-size: 0.9em; color: gray;'>
