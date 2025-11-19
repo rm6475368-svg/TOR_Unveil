@@ -9,7 +9,6 @@ from tor_collector import TORDataCollector
 from correlation_engine import CorrelationEngine
 from visualizer import NetworkVisualizer
 
-# Page configuration
 st.set_page_config(
     page_title="TOR Unveil - Traffic Correlation System",
     page_icon="🔍",
@@ -17,7 +16,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize session state
 if 'collector' not in st.session_state:
     st.session_state.collector = TORDataCollector()
     st.session_state.engine = CorrelationEngine()
@@ -25,7 +23,6 @@ if 'collector' not in st.session_state:
     st.session_state.traffic_data = None
     st.session_state.node_data = None
 
-# Main Title
 st.markdown('<h1 style="color:#1f77b4;text-align:center;">🔍 TOR UNVEIL - Peel the Onion</h1>', unsafe_allow_html=True)
 st.markdown("### Analytical System to Trace TOR Network Users")
 st.markdown("---")
@@ -33,18 +30,15 @@ st.markdown("---")
 # Sidebar
 with st.sidebar:
     st.title("Control Panel")
-
     st.subheader("1. Data Collection")
-    if st.button("🔄 Fetch TOR Nodes", key="fetch_nodes", help="Get the latest TOR exit nodes", type="primary"):
+    if st.button("🔄 Fetch TOR Nodes"):
         with st.spinner("Fetching TOR node data..."):
             st.session_state.node_data = st.session_state.collector.fetch_exit_nodes()
             st.success(f"✅ Loaded {len(st.session_state.node_data)} nodes")
-
-    if st.button("📊 Generate Traffic Patterns", key="gen_patterns", help="Simulate TOR traffic patterns", type="primary"):
+    if st.button("📊 Generate Traffic Patterns"):
         with st.spinner("Generating traffic correlation data..."):
             st.session_state.traffic_data = st.session_state.collector.generate_traffic_patterns()
             st.success(f"✅ Generated {len(st.session_state.traffic_data)} sessions")
-
     st.markdown("---")
     st.subheader("2. Analysis Settings")
     correlation_threshold = st.slider(
@@ -55,10 +49,9 @@ with st.sidebar:
         "Confidence Threshold",
         min_value=0.6, max_value=1.0, value=0.80, step=0.05
     )
-
     st.markdown("---")
     st.subheader("3. Export")
-    if st.button("📥 Generate Forensic Report", key="gen_report", type="primary"):
+    if st.button("📥 Generate Forensic Report"):
         if st.session_state.traffic_data is not None:
             from report_generator import ForensicReportGenerator
             reporter = ForensicReportGenerator()
@@ -77,7 +70,6 @@ with st.sidebar:
         else:
             st.warning("⚠️ Generate traffic data first!")
 
-# Main Dashboard - 6 tabs
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 Overview Dashboard",
     "🌐 Network Topology",
@@ -87,10 +79,8 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📋 Statistics & Rigor"
 ])
 
-# ------------- TAB 1: Overview Dashboard -------------
 with tab1:
     st.subheader("System Overview & Metrics")
-
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric(
@@ -121,7 +111,6 @@ with tab1:
             label="Avg Correlation Score",
             value=f"{st.session_state.traffic_data['correlation_score'].mean():.3f}" if st.session_state.traffic_data is not None else "0.000"
         )
-
     st.markdown("---")
     if st.session_state.traffic_data is not None:
         st.subheader("🔍 Detected Traffic Correlations")
@@ -130,10 +119,7 @@ with tab1:
         ].sort_values('confidence', ascending=False)
         display_cols = ['session_id', 'entry_node', 'exit_node', 'correlation_score', 'confidence']
         st.dataframe(
-            filtered_data[display_cols].style.background_gradient(
-                subset=['correlation_score', 'confidence'],
-                cmap='RdYlGn'
-            ),
+            filtered_data[display_cols],
             height=300
         )
         col1, col2 = st.columns(2)
@@ -158,7 +144,6 @@ with tab1:
     else:
         st.info("👈 Click 'Generate Traffic Patterns' in sidebar to load data")
 
-# ------------- TAB 2: Network Topology -------------
 with tab2:
     st.subheader("🌐 TOR Network Topology Visualization")
     if st.session_state.traffic_data is not None:
@@ -166,7 +151,6 @@ with tab2:
             st.session_state.traffic_data
         )
         st.plotly_chart(fig, use_container_width=True)
-
         col1, col2, col3 = st.columns(3)
         with col1:
             unique_entry = st.session_state.traffic_data['entry_node'].nunique()
@@ -177,7 +161,6 @@ with tab2:
         with col3:
             total_connections = len(st.session_state.traffic_data)
             st.metric("Total Connections", total_connections)
-
         if st.session_state.node_data is not None:
             st.subheader("📍 Geographic Distribution of Nodes")
             country_dist = st.session_state.node_data['country'].value_counts()
@@ -193,7 +176,6 @@ with tab2:
     else:
         st.info("👈 Generate traffic patterns first to visualize network topology")
 
-# ------------- TAB 3: Correlation Analysis -------------
 with tab3:
     st.subheader("🎯 Traffic Correlation Analysis")
     if st.session_state.traffic_data is not None:
@@ -262,7 +244,6 @@ with tab3:
     else:
         st.info("👈 Generate traffic patterns first to perform correlation analysis")
 
-# ------------- TAB 4: Timeline Reconstruction -------------
 with tab4:
     st.subheader("📈 Network Path Timeline Reconstruction")
     if st.session_state.traffic_data is not None:
@@ -281,7 +262,8 @@ with tab4:
                     st.markdown("**🔴 Exit Node**")
                     st.code(row['exit_node'])
                 fig = st.session_state.visualizer.create_timeline_reconstruction(row)
-                st.plotly_chart(fig, use_container_width=True)
+                # FIX: Add a unique key for each chart
+                st.plotly_chart(fig, use_container_width=True, key=f"timeline_{row['session_id']}_{idx}")
         st.markdown("### 📅 Session Timeline Overview")
         timeline_df = st.session_state.traffic_data.copy()
         timeline_df['datetime'] = pd.to_datetime(timeline_df['timestamp'], unit='s')
@@ -295,11 +277,10 @@ with tab4:
             title='Traffic Correlation Timeline',
             color_continuous_scale='RdYlGn'
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="overall_timeline")
     else:
         st.info("👈 Generate traffic patterns first to view timeline reconstruction")
 
-# ------------- TAB 5: ML Performance (CORRECTED) -------------
 with tab5:
     st.subheader("🤖 Machine Learning Model Performance")
     col1, col2 = st.columns(2)
@@ -336,7 +317,7 @@ with tab5:
         color_continuous_scale='Viridis',
         labels={'Importance': 'Feature Importance Score', 'Feature': 'Feature Name'}
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="ml_feature_importance")
     st.markdown("---")
     st.markdown("### Model Insights")
     st.info("""
@@ -358,7 +339,6 @@ with tab5:
     📈 **Production Path**: With more training data and deep learning, accuracy could reach 95%+
     """)
 
-# ------------- TAB 6: Statistical Rigor -------------
 with tab6:
     st.subheader("📋 Statistical Analysis & Confidence Metrics")
     if st.session_state.traffic_data is not None:
@@ -417,7 +397,7 @@ with tab6:
                 line_color="red",
                 annotation_text=f"Mean: {correlations.mean():.3f}"
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="correlation_hist")
         with col2:
             st.markdown("### High Confidence Sessions")
             high_conf = st.session_state.traffic_data.nlargest(10, 'confidence')
@@ -441,7 +421,7 @@ with tab6:
                 barmode='group',
                 height=400
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="high_conf_bar")
         st.markdown("---")
         st.markdown("""
         **Our Approach:**
@@ -460,7 +440,6 @@ with tab6:
     else:
         st.warning("Generate traffic patterns first to see statistics")
 
-# Footer
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; font-size: 0.9em; color: gray;'>
@@ -468,3 +447,4 @@ st.markdown("""
     Automated TOR topology mapping and node correlation for forensic investigation
 </div>
 """, unsafe_allow_html=True)
+
